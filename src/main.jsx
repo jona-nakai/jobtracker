@@ -259,7 +259,7 @@ function Tracker({ session }) {
     const activeGroupId = groupId === ALL_GROUP_ID ? ALL_GROUP_ID : await ensureGroup(nextGroups, groupId);
     const activeGroups = nextGroups.length
       ? nextGroups
-      : [{ group_id: await ensureGroup(nextGroups, ''), user_id: session.user.id, name: 'Job Search' }];
+      : (await supabase.from('application_groups').select('*').eq('user_id', session.user.id).order('created_at', { ascending: true })).data || [];
 
     if (activeGroupId !== groupId || activeGroupId !== selectedGroupId) {
       setSelectedGroupId(activeGroupId);
@@ -449,7 +449,7 @@ function Tracker({ session }) {
         <div className="group-switcher">
           <div className="nav-heading">Application Group</div>
           <select value={selectedGroupId} onChange={(event) => changeGroup(event.target.value)}>
-            <option value={ALL_GROUP_ID}>All</option>
+            <option value={ALL_GROUP_ID}>All Applications</option>
             {groups.map((group) => (
               <option key={group.group_id} value={group.group_id}>
                 {group.name}
