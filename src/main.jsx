@@ -440,7 +440,7 @@ function Tracker({ session }) {
         <header className="topbar">
           <div>
             <h1>{pages.find((item) => item.id === page)?.label}</h1>
-            <p>{data.roles.length} roles · {data.statuses.length} status events · {session.user.email}</p>
+            <p>{data.roles.length} roles · {session.user.email}</p>
           </div>
           <div className="topbar-actions">
             <button className="icon-button" type="button" onClick={signOut} title="Sign out">
@@ -598,6 +598,10 @@ function SankeyLink(props) {
 }
 
 function NewRole({ user, groupId, onSaved, setMessage }) {
+  if (!groupId) {
+    return <div className="empty">Select a specific group before creating a role.</div>;
+  }
+
   const [form, setForm] = useState({
     role_title: '',
     company: '',
