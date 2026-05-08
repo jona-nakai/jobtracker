@@ -21,6 +21,18 @@ textarea {
   font: inherit;
 }
 
+button,
+button *,
+select,
+a,
+a * {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
 .shell {
   min-height: 100vh;
   display: grid;
@@ -76,7 +88,6 @@ nav {
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.07);
   color: #c7d8dd;
-  cursor: pointer;
   font-weight: 700;
   font-size: 12px;
   padding: 4px 8px;
@@ -112,7 +123,6 @@ nav {
 .icon-button,
 .primary {
   border: 0;
-  cursor: pointer;
 }
 
 .nav-item {
@@ -203,7 +213,6 @@ p {
   border-radius: 6px;
   background: transparent;
   color: #425257;
-  cursor: pointer;
   font-weight: 700;
 }
 
@@ -320,7 +329,6 @@ p {
   border-bottom: 1px solid #edf1ef;
   background: #ffffff;
   color: #1d2428;
-  cursor: pointer;
   padding: 10px 12px;
   text-align: left;
 }
@@ -405,7 +413,6 @@ textarea {
   border-radius: 8px;
   min-height: 40px;
   padding: 0 12px;
-  cursor: pointer;
   font-weight: 700;
   transition: background 120ms, border-color 120ms;
 }
@@ -428,7 +435,6 @@ textarea {
   border: 0;
   background: transparent;
   color: #1f6f64;
-  cursor: pointer;
   font-weight: 700;
   padding: 0;
   text-align: left;
@@ -442,7 +448,6 @@ textarea {
   background: #fff5f5;
   color: #b42318;
   border-radius: 8px;
-  cursor: pointer;
   height: 34px;
   min-height: 34px;
   padding: 0;
@@ -568,7 +573,6 @@ td {
   min-height: 42px;
   padding: 0 16px;
   font-weight: 700;
-  cursor: pointer;
   transition: background 120ms;
 }
 
@@ -639,7 +643,6 @@ td {
   background: #ffffff;
   color: #9caaaa;
   border-radius: 8px;
-  cursor: pointer;
   padding: 0;
   transition: background 120ms, color 120ms, border-color 120ms;
 }

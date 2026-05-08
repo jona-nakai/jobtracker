@@ -161,12 +161,31 @@ function MissingConfig() {
 function SignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [mode, setMode] = useState('sign-in');
   const [message, setMessage] = useState('');
 
+  function switchMode(next) {
+    setMode(next);
+    setMessage('');
+    setPassword('');
+    setConfirmPassword('');
+  }
+
   async function submit(event) {
     event.preventDefault();
+
+    if (mode === 'forgot-password') {
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      setMessage(error ? error.message : 'Check your email for a password reset link.');
+      return;
+    }
+
     if (mode === 'sign-up') {
+      if (password !== confirmPassword) {
+        setMessage('Passwords do not match.');
+        return;
+      }
       const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) {
         setMessage(error.message);
@@ -185,6 +204,9 @@ function SignIn() {
     }
   }
 
+  const titles = { 'sign-in': 'Sign In', 'sign-up': 'Create Account', 'forgot-password': 'Reset Password' };
+  const submitLabels = { 'sign-in': 'Sign In', 'sign-up': 'Create Account', 'forgot-password': 'Send Reset Email' };
+
   return (
     <main className="auth-page">
       <form className="auth-panel" onSubmit={submit}>
@@ -192,21 +214,34 @@ function SignIn() {
           <BarChart3 size={22} />
           <span>Job Tracker</span>
         </div>
-        <h1>{mode === 'sign-up' ? 'Create Account' : 'Sign In'}</h1>
+        <h1>{titles[mode]}</h1>
         <label className="field">
           <span>Email<b className="required-mark">*</b></span>
           <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
         </label>
-        <label className="field">
-          <span>Password<b className="required-mark">*</b></span>
-          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength="6" required />
-        </label>
+        {mode !== 'forgot-password' && (
+          <label className="field">
+            <span>Password<b className="required-mark">*</b></span>
+            <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength="6" required />
+          </label>
+        )}
+        {mode === 'sign-up' && (
+          <label className="field">
+            <span>Confirm Password<b className="required-mark">*</b></span>
+            <input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} minLength="6" required />
+          </label>
+        )}
         <button className="primary" type="submit">
           <Save size={18} />
-          <span>{mode === 'sign-up' ? 'Create Account' : 'Sign In'}</span>
+          <span>{submitLabels[mode]}</span>
         </button>
-        <button className="text-button" type="button" onClick={() => setMode(mode === 'sign-up' ? 'sign-in' : 'sign-up')}>
-          {mode === 'sign-up' ? 'Use existing account' : 'Create a new account'}
+        {mode === 'sign-in' && (
+          <button className="text-button" type="button" onClick={() => switchMode('forgot-password')}>
+            Forgot password?
+          </button>
+        )}
+        <button className="text-button" type="button" onClick={() => switchMode(mode === 'sign-up' ? 'sign-in' : 'sign-up')}>
+          {mode === 'sign-up' ? 'Use existing account' : mode === 'forgot-password' ? 'Back to sign in' : 'Create a new account'}
         </button>
         {message && <div className="notice">{message}</div>}
       </form>
