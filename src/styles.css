@@ -28,9 +28,15 @@ textarea {
 }
 
 .sidebar {
+  display: flex;
+  flex-direction: column;
   background: #12313d;
   color: #f7fbfc;
   padding: 20px 14px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .brand {
@@ -44,6 +50,48 @@ textarea {
 nav {
   display: grid;
   gap: 18px;
+}
+
+.group-switcher {
+  display: grid;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 18px;
+}
+
+.group-switcher select {
+  min-width: 0;
+  width: 100%;
+  border-color: rgba(226, 240, 237, 0.22);
+  background: rgba(255, 255, 255, 0.08);
+  color: #f7fbfc;
+}
+
+.group-manager-button {
+  width: fit-content;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(226, 240, 237, 0.28);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.07);
+  color: #c7d8dd;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+.group-manager-button:hover {
+  background: rgba(226, 240, 237, 0.14);
+  color: #ffffff;
+  border-color: rgba(226, 240, 237, 0.4);
+}
+
+.group-manager-button.active {
+  background: #e2f0ed;
+  color: #0d2b35;
+  border-color: #e2f0ed;
 }
 
 .nav-section {
@@ -359,6 +407,21 @@ textarea {
   padding: 0 12px;
   cursor: pointer;
   font-weight: 700;
+  transition: background 120ms, border-color 120ms;
+}
+
+.secondary:hover {
+  background: #f3f5f2;
+  border-color: #adb9b6;
+}
+
+.secondary:active {
+  background: #e8ede9;
+}
+
+.secondary.compact {
+  min-height: 34px;
+  padding: 0 10px;
 }
 
 .text-button {
@@ -443,6 +506,52 @@ td {
   text-align: right;
 }
 
+.row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(18, 49, 61, 0.4);
+  display: grid;
+  place-items: center;
+  z-index: 10;
+}
+
+.modal {
+  background: #ffffff;
+  border: 1px solid #dde3e0;
+  border-radius: 10px;
+  padding: 24px;
+  width: min(380px, 90vw);
+  box-shadow: 0 8px 32px rgba(18, 49, 61, 0.18);
+  display: grid;
+  gap: 16px;
+}
+
+.modal h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.modal form {
+  display: grid;
+  gap: 16px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.groups-table {
+  min-width: 640px;
+}
+
 th {
   font-size: 12px;
   text-transform: uppercase;
@@ -504,6 +613,7 @@ a {
     position: sticky;
     top: 0;
     z-index: 2;
+    display: grid;
   }
 
   nav {
@@ -522,6 +632,10 @@ a {
   .nav-heading,
   .nav-item span,
   .brand span {
+    display: none;
+  }
+
+  .group-switcher {
     display: none;
   }
 

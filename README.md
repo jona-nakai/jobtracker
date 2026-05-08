@@ -6,6 +6,7 @@ A personal job application tracker built as a React/Vite website with Supabase f
 
 - Email/password sign-in
 - Sankey dashboard showing application status transitions
+- Multiple application groups per account, such as Jobs or Internships, plus an `All` view
 - Form to create a new role
 - Form to append a new status event
 - Editable roles table
@@ -25,14 +26,20 @@ A personal job application tracker built as a React/Vite website with Supabase f
 
 ## Data Model
 
-The app uses two Supabase tables.
+The app uses three Supabase tables.
+
+`application_groups` stores groups within a user account:
+
+```text
+group_id, user_id, name, created_at
+```
 
 `roles` stores role metadata:
 
 ```text
-role_id, user_id, role_title, company, external_link, source, internal_link,
-date_posted, date_applied, work_mode, employment_type, location, referrer,
-salary, notes, created_at
+role_id, user_id, group_id, role_title, company, external_link, source,
+internal_link, date_posted, date_applied, work_mode, employment_type,
+location, referrer, salary, notes, created_at
 ```
 
 Required fields:
@@ -54,6 +61,8 @@ Required fields:
 - `changed_at`
 
 The current status shown on the Roles page is derived from the latest `status_history` row for that role. It is not stored in the `roles` table. Roles with no status events show `No Status`.
+
+The selected application group controls which roles, statuses, and Sankey data are visible. The `All` option is a combined view of every role in the account, including roles that are not assigned to a group.
 
 ## Local Setup
 
@@ -148,6 +157,12 @@ Previews the production build locally.
 ## Notes
 
 - `date_posted`, `date_applied`, and `changed_at` default to today's date when creating new records.
+- New accounts start with a default `Jobs` application group.
+- The application group switcher is in the lower-left sidebar.
+- The `All` group is not stored in the database; it is a UI view across all groups.
+- Groups can be created from the lower-left sidebar with the `+` button.
+- Groups can be renamed and deleted from the Groups manager page.
+- Deleting a group does not delete its roles. Those roles remain visible in `All`.
 - Status updates from the Update Status page append new rows to `status_history`.
 - Editing the Status page modifies an existing historical event, which is useful for correcting mistakes.
 - Deleting a role also deletes its status events through the database foreign key cascade.

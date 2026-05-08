@@ -6,6 +6,7 @@ import {
   Download,
   ExternalLink,
   FileClock,
+  Folders,
   LayoutDashboard,
   LogOut,
   Plus,
@@ -74,6 +75,8 @@ const options = {
   employmentTypes,
   today: today()
 };
+
+const ALL_GROUP_ID = 'all';
 
 const roleFields = [
   ['role_title', 'Role Title'],
@@ -213,20 +216,71 @@ function SignIn() {
 function Tracker({ session }) {
   const [page, setPage] = useState('dashboard');
   const [data, setData] = useState({ roles: [], statuses: [], roleSummaries: [] });
+  const [groups, setGroups] = useState([]);
+  const [selectedGroupId, setSelectedGroupId] = useState(window.localStorage.getItem(`jobtracker-group-${session.user.id}`) || ALL_GROUP_ID);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
 
-  async function loadData() {
+  async function ensureGroup(existingGroups, requestedGroupId) {
+    if (existingGroups.length) {
+      return existingGroups.find((group) => group.group_id === requestedGroupId)?.group_id || existingGroups[0].group_id;
+    }
+
+    const { data: group, error } = await supabase
+      .from('application_groups')
+      .insert({ user_id: session.user.id, name: 'Jobs' })
+      .select()
+      .single();
+    if (error) throw error;
+    return group.group_id;
+  }
+
+  async function loadData(groupId = selectedGroupId) {
     setLoading(true);
-    const [rolesResult, statusesResult] = await Promise.all([
-      supabase.from('roles').select('*').eq('user_id', session.user.id).order('date_applied', { ascending: false }),
-      supabase.from('status_history').select('*').eq('user_id', session.user.id).order('changed_at', { ascending: true })
-    ]);
+    const groupsResult = await supabase
+      .from('application_groups')
+      .select('*')
+      .eq('user_id', session.user.id)
+      .order('created_at', { ascending: true });
+    if (groupsResult.error) throw groupsResult.error;
+
+    const nextGroups = groupsResult.data || [];
+    const activeGroupId = groupId === ALL_GROUP_ID ? ALL_GROUP_ID : await ensureGroup(nextGroups, groupId);
+    const activeGroups = nextGroups.length
+      ? nextGroups
+      : [{ group_id: await ensureGroup(nextGroups, ''), user_id: session.user.id, name: 'Jobs' }];
+
+    if (activeGroupId !== groupId || activeGroupId !== selectedGroupId) {
+      setSelectedGroupId(activeGroupId);
+      window.localStorage.setItem(`jobtracker-group-${session.user.id}`, activeGroupId);
+    }
+
+    setGroups(activeGroups);
+
+    let rolesQuery = supabase
+      .from('roles')
+      .select('*')
+      .eq('user_id', session.user.id)
+      .order('date_applied', { ascending: false });
+    if (activeGroupId !== ALL_GROUP_ID) {
+      rolesQuery = rolesQuery.eq('group_id', activeGroupId);
+    }
+    const rolesResult = await rolesQuery;
 
     if (rolesResult.error) throw rolesResult.error;
-    if (statusesResult.error) throw statusesResult.error;
 
     const roles = rolesResult.data || [];
+    const roleIds = roles.map((role) => role.role_id);
+    const statusesResult = roleIds.length
+      ? await supabase
+          .from('status_history')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .in('role_id', roleIds)
+          .order('changed_at', { ascending: true })
+      : { data: [], error: null };
+    if (statusesResult.error) throw statusesResult.error;
+
     const statuses = statusesResult.data || [];
     setData({
       roles,
@@ -242,6 +296,65 @@ function Tracker({ session }) {
       setLoading(false);
     });
   }, []);
+
+  async function changeGroup(groupId) {
+    try {
+      setSelectedGroupId(groupId);
+      window.localStorage.setItem(`jobtracker-group-${session.user.id}`, groupId);
+      await loadData(groupId);
+    } catch (error) {
+      setMessage(error.message || 'Could not switch application group.');
+      setLoading(false);
+    }
+  }
+
+  async function createGroup(name, notes = '') {
+    try {
+      const { data: group, error } = await supabase
+        .from('application_groups')
+        .insert({ user_id: session.user.id, name: name.trim(), notes: notes ?? '' })
+        .select()
+        .single();
+      if (error) throw error;
+      setGroups((current) => [...current, group]);
+      await changeGroup(group.group_id);
+      setMessage('Application group created.');
+    } catch (error) {
+      setMessage(error.message);
+    }
+  }
+
+  async function editGroup(groupId, field, value) {
+    try {
+      const { error } = await supabase
+        .from('application_groups')
+        .update({ [field]: value })
+        .eq('group_id', groupId);
+      if (error) throw error;
+      setMessage('Application group updated.');
+      await loadData(selectedGroupId);
+    } catch (error) {
+      setMessage(error.message);
+    }
+  }
+
+  async function deleteGroup(groupId, name) {
+    if (groups.length <= 1) {
+      setMessage('At least one application group must exist.');
+      return;
+    }
+    if (!window.confirm(`Delete the "${name}" application group? Its roles will remain visible in All.`)) {
+      return;
+    }
+    try {
+      const { error } = await supabase.from('application_groups').delete().eq('group_id', groupId);
+      if (error) throw error;
+      setMessage('Application group deleted.');
+      await changeGroup(selectedGroupId === groupId ? ALL_GROUP_ID : selectedGroupId);
+    } catch (error) {
+      setMessage(error.message);
+    }
+  }
 
   async function signOut() {
     if (!window.confirm('Are you sure you want to log out?')) {
@@ -267,7 +380,7 @@ function Tracker({ session }) {
       ]
     }
   ];
-  const pages = navSections.flatMap((section) => section.pages);
+  const pages = [...navSections.flatMap((section) => section.pages), { id: 'groups', label: 'Groups', icon: Folders }];
 
   return (
     <div className="shell">
@@ -300,6 +413,28 @@ function Tracker({ session }) {
             </div>
           ))}
         </nav>
+        <div className="group-switcher">
+          <div className="nav-heading">Application Group</div>
+          <select value={selectedGroupId} onChange={(event) => changeGroup(event.target.value)}>
+            <option value={ALL_GROUP_ID}>All</option>
+            {groups.map((group) => (
+              <option key={group.group_id} value={group.group_id}>
+                {group.name}
+              </option>
+            ))}
+          </select>
+          <button
+            className={page === 'groups' ? 'group-manager-button active' : 'group-manager-button'}
+            type="button"
+            onClick={() => {
+              setMessage('');
+              setPage('groups');
+            }}
+          >
+            <Folders size={16} />
+            <span>Manage Groups</span>
+          </button>
+        </div>
       </aside>
       <main className="content">
         <header className="topbar">
@@ -326,10 +461,11 @@ function Tracker({ session }) {
         ) : (
           <>
             {page === 'dashboard' && <Dashboard data={data} />}
-            {page === 'new-role' && <NewRole user={session.user} onSaved={loadData} setMessage={setMessage} />}
+            {page === 'new-role' && <NewRole user={session.user} groupId={selectedGroupId === ALL_GROUP_ID ? null : selectedGroupId} onSaved={loadData} setMessage={setMessage} />}
             {page === 'update-status' && <UpdateStatus user={session.user} data={data} onSaved={loadData} setMessage={setMessage} />}
             {page === 'roles' && <RolesTable data={data} onSaved={loadData} setMessage={setMessage} />}
             {page === 'statuses' && <StatusTable data={data} user={session.user} onSaved={loadData} setMessage={setMessage} />}
+            {page === 'groups' && <GroupsManager groups={groups} onAdd={createGroup} onEdit={editGroup} onDelete={deleteGroup} />}
           </>
         )}
       </main>
@@ -461,7 +597,7 @@ function SankeyLink(props) {
   return <path d={path} stroke={payload.fill} strokeWidth={Math.max(1, linkWidth)} fill="none" opacity={0.36} />;
 }
 
-function NewRole({ user, onSaved, setMessage }) {
+function NewRole({ user, groupId, onSaved, setMessage }) {
   const [form, setForm] = useState({
     role_title: '',
     company: '',
@@ -486,6 +622,7 @@ function NewRole({ user, onSaved, setMessage }) {
       requireFields(form, ['role_title', 'company', 'date_applied']);
       const rolePayload = normalizeOptionalFields({
         user_id: user.id,
+        group_id: groupId,
         role_title: form.role_title,
         company: form.company,
         external_link: form.external_link,
@@ -793,6 +930,110 @@ function StatusTable({ data, user, onSaved, setMessage }) {
 
 function roleOptions(roles) {
   return roles.map((role) => ({ value: role.role_id, label: `${role.company} · ${role.role_title}` }));
+}
+
+function GroupModal({ title, submitLabel, initialName = '', initialNotes = '', onClose, onSubmit }) {
+  const [form, setForm] = useState({ name: initialName, notes: initialNotes });
+
+  async function submit(event) {
+    event.preventDefault();
+    if (!form.name.trim()) return;
+    await onSubmit(form.name, form.notes);
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={(event) => event.stopPropagation()}>
+        <h2>{title}</h2>
+        <form onSubmit={submit}>
+          <label className="field">
+            <span>Name<b className="required-mark">*</b></span>
+            <input autoFocus value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="e.g. Summer 2025" required />
+          </label>
+          <label className="field">
+            <span>Notes</span>
+            <textarea value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} rows="3" placeholder="Optional notes about this group" />
+          </label>
+          <div className="modal-actions">
+            <button className="secondary" type="button" onClick={onClose}>Cancel</button>
+            <button className="primary" type="submit">{submitLabel}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function GroupsManager({ groups, onAdd, onEdit, onDelete }) {
+  const [addOpen, setAddOpen] = useState(false);
+
+  function saveIfChanged(group, field, value) {
+    const prev = String(group[field] ?? '');
+    if (value === prev) return;
+    if (field === 'name' && !value.trim()) return;
+    onEdit(group.group_id, field, value);
+  }
+
+  return (
+    <section className="panel table-panel">
+      <div className="table-tools">
+        <button className="primary" type="button" onClick={() => setAddOpen(true)}>
+          <Plus size={18} />
+          <span>Add Group</span>
+        </button>
+      </div>
+      {addOpen && (
+        <GroupModal
+          title="New Group"
+          submitLabel="Create"
+          onClose={() => setAddOpen(false)}
+          onSubmit={async (name, notes) => {
+            await onAdd(name, notes);
+            setAddOpen(false);
+          }}
+        />
+      )}
+      <div className="table-wrap">
+        <table className="groups-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Notes</th>
+              <th>Created</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {groups.map((group) => (
+              <tr key={group.group_id}>
+                <td>
+                  <input
+                    defaultValue={group.name}
+                    onBlur={(event) => saveIfChanged(group, 'name', event.target.value.trim())}
+                    onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); event.currentTarget.blur(); } }}
+                  />
+                </td>
+                <td>
+                  <input
+                    defaultValue={group.notes || ''}
+                    placeholder="—"
+                    onBlur={(event) => saveIfChanged(group, 'notes', event.target.value)}
+                    onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); event.currentTarget.blur(); } }}
+                  />
+                </td>
+                <td>{group.created_at?.slice(0, 10) || ''}</td>
+                <td className="row-action-cell">
+                  <button className="danger-row-button" type="button" onClick={() => onDelete(group.group_id, group.name)} title="Delete">
+                    <Trash2 size={16} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
 }
 
 function EditableTable({ rows, columns, idField, onUpdate, onDelete, query, setQuery, exportRows, exportColumns, exportName }) {
