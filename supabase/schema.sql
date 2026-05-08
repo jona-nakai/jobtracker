@@ -10,7 +10,7 @@ create table if not exists public.application_groups (
 create table if not exists public.roles (
   role_id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
-  group_id uuid references public.application_groups(group_id) on delete set null,
+  group_id uuid references public.application_groups(group_id) on delete cascade,
   role_title text not null,
   company text not null,
   external_link text default '',
@@ -38,7 +38,7 @@ create table if not exists public.status_history (
 );
 
 alter table public.application_groups add column if not exists notes text default '';
-alter table public.roles add column if not exists group_id uuid references public.application_groups(group_id) on delete set null;
+alter table public.roles add column if not exists group_id uuid references public.application_groups(group_id) on delete cascade;
 alter table public.roles alter column work_mode set default 'In Person';
 
 alter table public.application_groups enable row level security;

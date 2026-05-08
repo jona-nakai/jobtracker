@@ -13,6 +13,7 @@ import {
   Save,
   Search,
   SquarePen,
+  Star,
   Trash2
 } from 'lucide-react';
 import { Sankey, Tooltip, ResponsiveContainer } from 'recharts';
@@ -217,9 +218,17 @@ function Tracker({ session }) {
   const [page, setPage] = useState('dashboard');
   const [data, setData] = useState({ roles: [], statuses: [], roleSummaries: [] });
   const [groups, setGroups] = useState([]);
-  const [selectedGroupId, setSelectedGroupId] = useState(window.localStorage.getItem(`jobtracker-group-${session.user.id}`) || ALL_GROUP_ID);
+  const [selectedGroupId, setSelectedGroupId] = useState(
+    window.localStorage.getItem(`jobtracker-default-${session.user.id}`) ||
+    window.localStorage.getItem(`jobtracker-group-${session.user.id}`) ||
+    ''
+  );
+  const [defaultGroupId, setDefaultGroupId] = useState(
+    window.localStorage.getItem(`jobtracker-default-${session.user.id}`) || ''
+  );
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
+  const [confirm, setConfirm] = useState(null);
 
   async function ensureGroup(existingGroups, requestedGroupId) {
     if (existingGroups.length) {
@@ -228,10 +237,12 @@ function Tracker({ session }) {
 
     const { data: group, error } = await supabase
       .from('application_groups')
-      .insert({ user_id: session.user.id, name: 'Jobs' })
+      .insert({ user_id: session.user.id, name: 'Job Search' })
       .select()
       .single();
     if (error) throw error;
+    window.localStorage.setItem(`jobtracker-default-${session.user.id}`, group.group_id);
+    setDefaultGroupId(group.group_id);
     return group.group_id;
   }
 
@@ -248,7 +259,7 @@ function Tracker({ session }) {
     const activeGroupId = groupId === ALL_GROUP_ID ? ALL_GROUP_ID : await ensureGroup(nextGroups, groupId);
     const activeGroups = nextGroups.length
       ? nextGroups
-      : [{ group_id: await ensureGroup(nextGroups, ''), user_id: session.user.id, name: 'Jobs' }];
+      : [{ group_id: await ensureGroup(nextGroups, ''), user_id: session.user.id, name: 'Job Search' }];
 
     if (activeGroupId !== groupId || activeGroupId !== selectedGroupId) {
       setSelectedGroupId(activeGroupId);
@@ -338,29 +349,51 @@ function Tracker({ session }) {
     }
   }
 
-  async function deleteGroup(groupId, name) {
+  function setDefaultGroup(groupId) {
+    window.localStorage.setItem(`jobtracker-default-${session.user.id}`, groupId);
+    setDefaultGroupId(groupId);
+    setMessage('Default group updated.');
+  }
+
+  function deleteGroup(groupId, name) {
     if (groups.length <= 1) {
       setMessage('At least one application group must exist.');
       return;
     }
-    if (!window.confirm(`Delete the "${name}" application group? Its roles will remain visible in All.`)) {
-      return;
-    }
-    try {
-      const { error } = await supabase.from('application_groups').delete().eq('group_id', groupId);
-      if (error) throw error;
-      setMessage('Application group deleted.');
-      await changeGroup(selectedGroupId === groupId ? ALL_GROUP_ID : selectedGroupId);
-    } catch (error) {
-      setMessage(error.message);
-    }
+    setConfirm({
+      title: 'Delete Group',
+      message: `Delete "${name}" and all its roles? This cannot be undone.`,
+      confirmLabel: 'Delete',
+      danger: true,
+      onConfirm: async () => {
+        setConfirm(null);
+        try {
+          const { error } = await supabase.from('application_groups').delete().eq('group_id', groupId);
+          if (error) throw error;
+          if (defaultGroupId === groupId) {
+            const next = groups.find((g) => g.group_id !== groupId)?.group_id || '';
+            window.localStorage.setItem(`jobtracker-default-${session.user.id}`, next);
+            setDefaultGroupId(next);
+          }
+          setMessage('Application group deleted.');
+          await changeGroup(selectedGroupId === groupId ? ALL_GROUP_ID : selectedGroupId);
+        } catch (error) {
+          setMessage(error.message);
+        }
+      }
+    });
   }
 
-  async function signOut() {
-    if (!window.confirm('Are you sure you want to log out?')) {
-      return;
-    }
-    await supabase.auth.signOut();
+  function signOut() {
+    setConfirm({
+      title: 'Sign Out',
+      message: 'Are you sure you want to log out?',
+      confirmLabel: 'Sign Out',
+      onConfirm: async () => {
+        setConfirm(null);
+        await supabase.auth.signOut();
+      }
+    });
   }
 
   const navSections = [
@@ -465,10 +498,11 @@ function Tracker({ session }) {
             {page === 'update-status' && <UpdateStatus user={session.user} data={data} onSaved={loadData} setMessage={setMessage} />}
             {page === 'roles' && <RolesTable data={data} onSaved={loadData} setMessage={setMessage} />}
             {page === 'statuses' && <StatusTable data={data} user={session.user} onSaved={loadData} setMessage={setMessage} />}
-            {page === 'groups' && <GroupsManager groups={groups} onAdd={createGroup} onEdit={editGroup} onDelete={deleteGroup} />}
+            {page === 'groups' && <GroupsManager groups={groups} defaultGroupId={defaultGroupId} onAdd={createGroup} onEdit={editGroup} onDelete={deleteGroup} onSetDefault={setDefaultGroup} />}
           </>
         )}
       </main>
+      {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
     </div>
   );
 }
@@ -820,6 +854,7 @@ function fuzzyIncludes(text, term) {
 
 function RolesTable({ data, onSaved, setMessage }) {
   const [query, setQuery] = useState('');
+  const [confirm, setConfirm] = useState(null);
   const rows = data.roleSummaries.filter((role) =>
     `${role.company} ${role.role_title} ${role.current_status} ${role.source}`.toLowerCase().includes(query.toLowerCase())
   );
@@ -839,23 +874,31 @@ function RolesTable({ data, onSaved, setMessage }) {
     }
   }
 
-  async function remove(roleId) {
+  function remove(roleId) {
     const role = data.roles.find((item) => item.role_id === roleId);
-    if (!window.confirm(`Delete ${role?.company || 'this company'} · ${role?.role_title || 'this role'} and all status history?`)) {
-      return;
-    }
-    try {
-      const { error } = await supabase.from('roles').delete().eq('role_id', roleId);
-      if (error) throw error;
-      setMessage('Role deleted.');
-      await onSaved();
-    } catch (error) {
-      setMessage(error.message);
-      await onSaved();
-    }
+    setConfirm({
+      title: 'Delete Role',
+      message: `Delete ${role?.company || 'this company'} · ${role?.role_title || 'this role'} and all its status history?`,
+      confirmLabel: 'Delete',
+      danger: true,
+      onConfirm: async () => {
+        setConfirm(null);
+        try {
+          const { error } = await supabase.from('roles').delete().eq('role_id', roleId);
+          if (error) throw error;
+          setMessage('Role deleted.');
+          await onSaved();
+        } catch (error) {
+          setMessage(error.message);
+          await onSaved();
+        }
+      }
+    });
   }
 
   return (
+    <>
+    {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
     <EditableTable
       query={query}
       setQuery={setQuery}
@@ -871,11 +914,13 @@ function RolesTable({ data, onSaved, setMessage }) {
       exportRows={rows}
       exportColumns={[...roleFields.map(([key]) => key), 'current_status', 'status_updated_at', 'status_notes']}
     />
+    </>
   );
 }
 
 function StatusTable({ data, user, onSaved, setMessage }) {
   const [query, setQuery] = useState('');
+  const [confirm, setConfirm] = useState(null);
   const labels = new Map(roleOptions(data.roles).map((role) => [role.value, role.label]));
   const rows = data.statuses
     .map((status) => ({ ...status, role_label: labels.get(status.role_id) || status.role_id }))
@@ -896,44 +941,68 @@ function StatusTable({ data, user, onSaved, setMessage }) {
     }
   }
 
-  async function remove(eventId) {
-    if (!window.confirm('Delete this status event?')) {
-      return;
-    }
-    try {
-      const { error } = await supabase.from('status_history').delete().eq('event_id', eventId);
-      if (error) throw error;
-      setMessage('Status event deleted.');
-      await onSaved();
-    } catch (error) {
-      setMessage(error.message);
-      await onSaved();
-    }
+  function remove(eventId) {
+    setConfirm({
+      title: 'Delete Status Event',
+      message: 'Delete this status event? This cannot be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+      onConfirm: async () => {
+        setConfirm(null);
+        try {
+          const { error } = await supabase.from('status_history').delete().eq('event_id', eventId);
+          if (error) throw error;
+          setMessage('Status event deleted.');
+          await onSaved();
+        } catch (error) {
+          setMessage(error.message);
+          await onSaved();
+        }
+      }
+    });
   }
 
   return (
-    <EditableTable
-      query={query}
-      setQuery={setQuery}
-      rows={rows}
-      columns={[
-        ['role_id', 'Role', roleOptions(data.roles)],
-        ['status', 'Status', options.statuses],
-        ['changed_at', 'Changed At', 'date'],
-        ['notes', 'Notes', null]
-      ]}
-      idField="event_id"
-      onUpdate={update}
-      onDelete={remove}
-      exportName="status_history.csv"
-      exportRows={rows}
-      exportColumns={['event_id', 'role_id', 'status', 'changed_at', 'notes']}
-    />
+    <>
+      {confirm && <ConfirmModal {...confirm} onClose={() => setConfirm(null)} />}
+      <EditableTable
+        query={query}
+        setQuery={setQuery}
+        rows={rows}
+        columns={[
+          ['role_id', 'Role', roleOptions(data.roles)],
+          ['status', 'Status', options.statuses],
+          ['changed_at', 'Changed At', 'date'],
+          ['notes', 'Notes', null]
+        ]}
+        idField="event_id"
+        onUpdate={update}
+        onDelete={remove}
+        exportName="status_history.csv"
+        exportRows={rows}
+        exportColumns={['event_id', 'role_id', 'status', 'changed_at', 'notes']}
+      />
+    </>
   );
 }
 
 function roleOptions(roles) {
   return roles.map((role) => ({ value: role.role_id, label: `${role.company} · ${role.role_title}` }));
+}
+
+function ConfirmModal({ title, message, confirmLabel = 'Confirm', danger = false, onConfirm, onClose }) {
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={(event) => event.stopPropagation()}>
+        <h2>{title}</h2>
+        <p className="modal-message">{message}</p>
+        <div className="modal-actions">
+          <button className="secondary" type="button" onClick={onClose}>Cancel</button>
+          <button className={danger ? 'danger-button' : 'primary'} type="button" onClick={onConfirm}>{confirmLabel}</button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function GroupModal({ title, submitLabel, initialName = '', initialNotes = '', onClose, onSubmit }) {
@@ -968,7 +1037,7 @@ function GroupModal({ title, submitLabel, initialName = '', initialNotes = '', o
   );
 }
 
-function GroupsManager({ groups, onAdd, onEdit, onDelete }) {
+function GroupsManager({ groups, defaultGroupId, onAdd, onEdit, onDelete, onSetDefault }) {
   const [addOpen, setAddOpen] = useState(false);
 
   function saveIfChanged(group, field, value) {
@@ -1005,9 +1074,30 @@ function GroupsManager({ groups, onAdd, onEdit, onDelete }) {
               <th>Notes</th>
               <th>Created</th>
               <th></th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
+            <tr className="group-row-readonly">
+              <td><span className="group-readonly-name">All Applications</span></td>
+              <td><span className="group-readonly-notes">Shows every role across all groups</span></td>
+              <td></td>
+              <td className="row-action-cell">
+                <div className="tooltip-wrap">
+                  <button
+                    className={defaultGroupId === ALL_GROUP_ID ? 'default-group-button is-default' : 'default-group-button'}
+                    type="button"
+                    onClick={() => onSetDefault(ALL_GROUP_ID)}
+                  >
+                    <Star size={15} />
+                  </button>
+                  <span className="tooltip-text">
+                    {defaultGroupId === ALL_GROUP_ID ? 'This is your default group — opens first when you visit the site' : 'Set as default — this group will open first when you visit the site'}
+                  </span>
+                </div>
+              </td>
+              <td className="row-action-cell"></td>
+            </tr>
             {groups.map((group) => (
               <tr key={group.group_id}>
                 <td>
@@ -1026,6 +1116,20 @@ function GroupsManager({ groups, onAdd, onEdit, onDelete }) {
                   />
                 </td>
                 <td>{group.created_at?.slice(0, 10) || ''}</td>
+                <td className="row-action-cell">
+                  <div className="tooltip-wrap">
+                    <button
+                      className={defaultGroupId === group.group_id ? 'default-group-button is-default' : 'default-group-button'}
+                      type="button"
+                      onClick={() => onSetDefault(group.group_id)}
+                    >
+                      <Star size={15} />
+                    </button>
+                    <span className="tooltip-text">
+                      {defaultGroupId === group.group_id ? 'This is your default group — opens first when you visit the site' : 'Set as default — this group will open first when you visit the site'}
+                    </span>
+                  </div>
+                </td>
                 <td className="row-action-cell">
                   <button className="danger-row-button" type="button" onClick={() => onDelete(group.group_id, group.name)} title="Delete">
                     <Trash2 size={16} />

@@ -446,10 +446,13 @@ textarea {
   height: 34px;
   min-height: 34px;
   padding: 0;
+  transition: background 120ms, border-color 120ms;
 }
 
 .danger-row-button:hover {
-  background: #ffe7e7;
+  background: #b42318;
+  border-color: #b42318;
+  color: #ffffff;
 }
 
 .table-panel {
@@ -548,8 +551,109 @@ td {
   gap: 8px;
 }
 
+.modal-message {
+  margin: 0;
+  color: #425257;
+  line-height: 1.5;
+}
+
+.danger-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #b42318;
+  color: #ffffff;
+  border: 0;
+  border-radius: 8px;
+  min-height: 42px;
+  padding: 0 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 120ms;
+}
+
+.danger-button:hover {
+  background: #9a1e14;
+}
+
 .groups-table {
   min-width: 640px;
+}
+
+.group-row-readonly td {
+  background: #f9fafb;
+  color: #66777d;
+}
+
+.group-readonly-name {
+  font-weight: 700;
+  padding: 0 10px;
+}
+
+.group-readonly-notes {
+  padding: 0 10px;
+  font-style: italic;
+}
+
+.tooltip-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.tooltip-text {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  background: #1d2428;
+  color: #f7fbfc;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.tooltip-text::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  right: 10px;
+  border: 5px solid transparent;
+  border-top-color: #1d2428;
+}
+
+.tooltip-wrap:hover .tooltip-text {
+  display: block;
+}
+
+.default-group-button {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #e2e7e5;
+  background: #ffffff;
+  color: #9caaaa;
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 0;
+  transition: background 120ms, color 120ms, border-color 120ms;
+}
+
+.default-group-button:hover {
+  background: #fffbea;
+  border-color: #f0d060;
+  color: #b08000;
+}
+
+.default-group-button.is-default {
+  background: #fffbea;
+  border-color: #f0d060;
+  color: #c49000;
 }
 
 th {
