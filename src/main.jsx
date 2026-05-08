@@ -162,15 +162,23 @@ function SignIn() {
 
   async function submit(event) {
     event.preventDefault();
-    const { error } =
-      mode === 'sign-up'
-        ? await supabase.auth.signUp({ email, password })
-        : await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      setMessage(error.message);
+    if (mode === 'sign-up') {
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      if (error) {
+        setMessage(error.message);
+        return;
+      }
+      if (!data.session) {
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+        setMessage(signInError ? 'Account created. Check your email if confirmation is enabled.' : '');
+      }
       return;
     }
-    setMessage(mode === 'sign-up' ? 'Account created. Check your email if confirmation is enabled.' : '');
+
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      setMessage(error.message);
+    }
   }
 
   return (
