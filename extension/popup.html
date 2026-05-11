@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Job Tracker Collector</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="popup">
+      <header>
+        <div>
+          <h1>Job Tracker</h1>
+          <p id="session-label">Not signed in</p>
+        </div>
+        <button id="sign-out" class="icon-button hidden" type="button" title="Sign out">Sign out</button>
+      </header>
+
+      <section id="config-view" class="panel hidden">
+        <h2>Setup needed</h2>
+        <p>Create <code>extension/config.js</code> from <code>config.example.js</code> and add your Supabase project values.</p>
+      </section>
+
+      <form id="auth-view" class="panel">
+        <label>
+          <span>Email</span>
+          <input id="email" type="email" required />
+        </label>
+        <label>
+          <span>Password</span>
+          <input id="password" type="password" required />
+        </label>
+        <button class="primary" type="submit">Sign In</button>
+      </form>
+
+      <section id="collect-view" class="panel hidden">
+        <button id="collect" class="primary" type="button">Collect Job</button>
+        <p class="hint">Open a LinkedIn or Indeed job posting, then collect and review before saving.</p>
+      </section>
+
+      <form id="review-view" class="panel hidden">
+        <label>
+          <span>Application Group</span>
+          <select id="group-id"></select>
+        </label>
+        <label>
+          <span>Role Title *</span>
+          <input id="role-title" required />
+        </label>
+        <label>
+          <span>Company *</span>
+          <input id="company" required />
+        </label>
+        <label>
+          <span>External Link</span>
+          <input id="external-link" />
+        </label>
+        <label>
+          <span>Internal Link</span>
+          <input id="internal-link" />
+        </label>
+        <label>
+          <span>Source</span>
+          <input id="source" />
+        </label>
+        <label>
+          <span>Date Posted</span>
+          <input id="date-posted" type="date" />
+        </label>
+        <label>
+          <span>Date Applied *</span>
+          <input id="date-applied" type="date" required />
+        </label>
+        <label>
+          <span>Work Mode</span>
+          <select id="work-mode">
+            <option>In Person</option>
+            <option>Hybrid</option>
+            <option>Remote</option>
+            <option>Flexible</option>
+            <option>Unknown</option>
+          </select>
+        </label>
+        <label>
+          <span>Employment Type</span>
+          <select id="employment-type">
+            <option>Full Time</option>
+            <option>Part Time</option>
+            <option>Contract</option>
+            <option>Contract to Hire</option>
+            <option>Internship</option>
+            <option>Temporary</option>
+            <option>Freelance</option>
+            <option>Apprenticeship</option>
+            <option>Seasonal</option>
+            <option>Unknown</option>
+          </select>
+        </label>
+        <label>
+          <span>Location</span>
+          <input id="location" />
+        </label>
+        <label>
+          <span>Salary</span>
+          <input id="salary" />
+        </label>
+        <label>
+          <span>Referrer</span>
+          <input id="referrer" />
+        </label>
+        <label>
+          <span>Notes</span>
+          <textarea id="notes" rows="3"></textarea>
+        </label>
+        <label>
+          <span>Initial Status</span>
+          <select id="initial-status">
+            <option>Applied</option>
+            <option>Saved</option>
+            <option>Recruiter Screen</option>
+            <option>Technical Screen</option>
+            <option>Hiring Manager Screen</option>
+            <option>Take Home</option>
+            <option>Onsite</option>
+            <option>Final Round</option>
+            <option>Offer</option>
+            <option>Accepted</option>
+            <option>Rejected</option>
+            <option>Withdrawn</option>
+            <option>Ghosted</option>
+            <option>Closed</option>
+          </select>
+        </label>
+        <div class="actions">
+          <button id="cancel-review" class="secondary" type="button">Cancel</button>
+          <button class="primary" type="submit">Save</button>
+        </div>
+      </form>
+
+      <div id="message" class="message hidden"></div>
+    </main>
+    <script src="config.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>
