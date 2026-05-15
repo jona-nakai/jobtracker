@@ -35,7 +35,14 @@ const ids = {
 };
 
 const $ = (key) => document.getElementById(ids[key]);
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => {
+  const date = new Date();
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0')
+  ].join('-');
+};
 const DRAFT_KEY = 'roleDraft';
 
 document.addEventListener('DOMContentLoaded', init);
