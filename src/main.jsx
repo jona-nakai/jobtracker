@@ -397,7 +397,7 @@ function Tracker({ session }) {
     }
     setConfirm({
       title: 'Delete Group',
-      message: `Delete "${name}" and all its roles? This cannot be undone.`,
+      message: `Delete "${name}" and all roles and status history in this group? This cannot be undone.`,
       confirmLabel: 'Delete',
       danger: true,
       onConfirm: async () => {
@@ -574,7 +574,7 @@ function Dashboard({ data }) {
     ];
   }, [data]);
 
-  const sankey = useMemo(() => buildSankey(data.statuses), [data.statuses]);
+  const sankey = useMemo(() => buildSankey(data.statuses, data.roleSummaries), [data.statuses, data.roleSummaries]);
 
   return (
     <section className="page-stack">
@@ -608,17 +608,23 @@ function Dashboard({ data }) {
   );
 }
 
-function buildSankey(statuses) {
+function buildSankey(statuses, roleSummaries = []) {
   const byRole = statuses.reduce((acc, event) => {
     acc[event.role_id] = acc[event.role_id] || [];
     acc[event.role_id].push(event);
     return acc;
   }, {});
   const linkCounts = new Map();
+  const stageCounts = roleSummaries.reduce((counts, role) => {
+    const status = role.current_status || 'No Status';
+    counts.set(status, (counts.get(status) || 0) + 1);
+    return counts;
+  }, new Map());
+
   Object.values(byRole).forEach((events) => {
     events
       .slice()
-      .sort((a, b) => a.changed_at.localeCompare(b.changed_at))
+      .sort((a, b) => a.changed_at.localeCompare(b.changed_at) || a.created_at.localeCompare(b.created_at))
       .forEach((event, index, sorted) => {
         if (index === 0) return;
         const from = sorted[index - 1].status || 'Unknown';
@@ -627,8 +633,12 @@ function buildSankey(statuses) {
         linkCounts.set(key, (linkCounts.get(key) || 0) + 1);
       });
   });
-  const names = Array.from(new Set(Array.from(linkCounts.keys()).flatMap((key) => key.split(':::'))));
-  const nodes = names.map((name) => ({ name, fill: colorForStatus(name) }));
+
+  const names = Array.from(new Set([
+    ...Array.from(linkCounts.keys()).flatMap((key) => key.split(':::')),
+    ...stageCounts.keys()
+  ]));
+  const nodes = names.map((name) => ({ name, count: stageCounts.get(name) || 0, fill: colorForStatus(name) }));
   const indexByName = new Map(names.map((name, index) => [name, index]));
   const links = Array.from(linkCounts.entries()).map(([key, value]) => {
     const [source, target] = key.split(':::');
@@ -650,7 +660,7 @@ function SankeyNode(props) {
     <g>
       <rect x={x} y={y} width={width} height={height} rx={4} fill={payload.fill} />
       <text className="sankey-label" x={labelX} y={labelY} dominantBaseline="middle">
-        {payload.name}
+        {payload.name} ({payload.count})
       </text>
     </g>
   );

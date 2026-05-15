@@ -154,15 +154,29 @@ npm run preview
 
 Previews the production build locally.
 
+## Browser Extension
+
+The `extension/` folder contains a lightweight Chrome/Firefox extension that collects LinkedIn job postings.
+
+Set it up with:
+
+```bash
+cp extension/config.example.js extension/config.js
+```
+
+Then fill `extension/config.js` with the same Supabase URL and publishable key used by the website.
+
+See [extension/README.md](extension/README.md) for Chrome and Firefox testing steps.
+
 ## Notes
 
 - `date_posted`, `date_applied`, and `changed_at` default to today's date when creating new records.
-- New accounts start with a default `Jobs` application group.
+- New accounts start with a default `Job Search` application group.
 - The application group switcher is in the lower-left sidebar.
 - The `All` group is not stored in the database; it is a UI view across all groups.
 - Groups can be created from the lower-left sidebar with the `+` button.
 - Groups can be renamed and deleted from the Groups manager page.
-- Deleting a group does not delete its roles. Those roles remain visible in `All`.
+- Deleting a group also deletes every role in that group and those roles' status events.
 - Status updates from the Update Status page append new rows to `status_history`.
 - Editing the Status page modifies an existing historical event, which is useful for correcting mistakes.
 - Deleting a role also deletes its status events through the database foreign key cascade.
