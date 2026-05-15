@@ -634,10 +634,7 @@ function buildSankey(statuses, roleSummaries = []) {
       });
   });
 
-  const names = Array.from(new Set([
-    ...Array.from(linkCounts.keys()).flatMap((key) => key.split(':::')),
-    ...stageCounts.keys()
-  ]));
+  const names = Array.from(new Set(Array.from(linkCounts.keys()).flatMap((key) => key.split(':::'))));
   const nodes = names.map((name) => ({ name, count: stageCounts.get(name) || 0, fill: colorForStatus(name) }));
   const indexByName = new Map(names.map((name, index) => [name, index]));
   const links = Array.from(linkCounts.entries()).map(([key, value]) => {
